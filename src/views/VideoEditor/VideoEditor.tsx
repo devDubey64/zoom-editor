@@ -1,14 +1,8 @@
-import React, {FC, useEffect, useRef, useState} from "react";
-import {Box, Button} from "@mui/material";
-import {TimeLine} from "./components";
+import React, {FC, useEffect, useMemo, useRef, useState} from "react";
+import {Box, Button, Typography} from "@mui/material";
+import {TimeLine, ZoomBlock} from "./components";
+import {ZoomBlockType} from "./types";
 
-type ZoomBlockType = {
-    factor: number;
-    x : number;
-    y : number;
-    startTime: number;
-    endTime: number;
-}
 
 export const VideoEditor: FC = ()=> {
 
@@ -16,31 +10,15 @@ export const VideoEditor: FC = ()=> {
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [currentZoomBlock, setCurrentZoomBlock] = useState<ZoomBlockType | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [isMuted, setIsMuted] = useState(false);
+    const [zoomBlocks, setZoomBlocks] = useState<ZoomBlockType[]>([]);
 
-    const zoomBlocks: ZoomBlockType[] = [{
-        x: 800,
-        y: 300,
-        factor: 1.2,
-        startTime: 4,
-        endTime: 8,
-    }, {
-        x: 1000,
-        y: 300,
-        factor: 1.2,
-        startTime: 10,
-        endTime: 15,
-    }, {
-        x: 1000,
-        y: 800,
-        factor: 1.2,
-        startTime: 18,
-        endTime: 25,
-    }]
+    const baseZoomBlock: ZoomBlockType = useMemo(() => {
+        return {x:400, y:200, factor:1, startTime:0, endTime: duration}
+    }, [duration]);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -60,15 +38,38 @@ export const VideoEditor: FC = ()=> {
             if (!ctx) return;
 
             const { x, y, factor} = zoomBlock;
-            const zoomWidth = canvas.width / factor;
-            const zoomHeight = canvas.height / factor;
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
+
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+
+            const videoAspectRatio = videoWidth / videoHeight;
+            const canvasAspectRatio = canvasWidth / canvasHeight;
+
+            let scaledVideoWidth, scaledVideoHeight;
+            if (videoAspectRatio > canvasAspectRatio) {
+                scaledVideoWidth = canvasWidth;
+                scaledVideoHeight = canvasWidth / videoAspectRatio;
+            } else {
+                scaledVideoHeight = canvasHeight;
+                scaledVideoWidth = canvasHeight * videoAspectRatio;
+            }
+
+            const offsetX = (canvasWidth - scaledVideoWidth) / 2;
+            const offsetY = (canvasHeight - scaledVideoHeight) / 2;
+
+            const mappedX = ((x - offsetX) / scaledVideoWidth) * videoWidth;
+            const mappedY = ((y - offsetY) / scaledVideoHeight) * videoHeight;
+
+            const zoomWidth = videoWidth / factor;
+            const zoomHeight = videoHeight / factor;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             ctx.drawImage(
                 video,
-                x - zoomWidth / 2,
-                y - zoomHeight / 2,
+                mappedX - zoomWidth / 2,
+                mappedY - zoomHeight / 2,
                 zoomWidth,
                 zoomHeight,
                 0,
@@ -90,25 +91,19 @@ export const VideoEditor: FC = ()=> {
             );
 
             if (activeBlock){
-                setCurrentZoomBlock(activeBlock);
                 drawZoom(activeBlock);
             } else {
-                setCurrentZoomBlock(null);
+                drawZoom(baseZoomBlock);
             }
         };
-
-        const interval = setInterval(() => {
-            if (currentZoomBlock) drawZoom(currentZoomBlock);
-        }, 1000 / 30)
 
         video.addEventListener("timeupdate", handleTimeUpdate);
         video.addEventListener("loadedmetadata", () => setDuration(video.duration));
 
         return () => {
             video.removeEventListener("timeupdate", handleTimeUpdate);
-            clearInterval(interval);
         };
-    }, [videoSrc]);
+    }, [videoSrc, zoomBlocks]);
 
     const handlePausePlay = () => {
         if (videoRef.current) {
@@ -135,6 +130,20 @@ export const VideoEditor: FC = ()=> {
         }
     }
 
+    const handleAddZoomBlock = () => {
+        setZoomBlocks(prevState => [...prevState, baseZoomBlock]);
+    }
+
+    const handleEditZoomBlock = (zoomBlock: ZoomBlockType, index: number) => {
+        setZoomBlocks(prevState => {
+            return [
+                ...prevState.slice(0, index),
+                zoomBlock,
+                ...prevState.slice(index + 1),
+            ]
+        });
+    }
+
     return <Box sx={{
         padding: 4,
         display: 'flex',
@@ -159,12 +168,13 @@ export const VideoEditor: FC = ()=> {
             </Button>
         </Box>
         { videoSrc && (
+            <Box sx={{width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', }}>
             <Box sx={{ position: "relative",width: "800px", height: "400px"}}>
                 <video
                     ref={videoRef}
                     src={videoSrc || ''}
                     style={{
-                        display: "block",
+                        display: "none",
                         width: "100%",
                         height: "100%",
                     }}
@@ -173,15 +183,15 @@ export const VideoEditor: FC = ()=> {
                     ref={canvasRef}
                     style={{
                         position: "absolute",
-                        display: currentZoomBlock ? "block" : "none",
+                        display: "block",
                         top: 0,
                         left: 0,
                         width: "100%",
                         height: "100%",
                         pointerEvents: "none",
                     }}
-                    width={800}
-                    height={400}
+                    width='800px'
+                    height='400px'
                 />
                 <TimeLine
                     isPlaying={isPlaying}
@@ -192,6 +202,16 @@ export const VideoEditor: FC = ()=> {
                     handleSeek={handleSeek}
                     duration={duration}
                 />
+            </Box>
+            <Typography fontSize={'1rem'} fontWeight={600}>Customize your zoom blocks</Typography>
+            {
+                zoomBlocks.map((zoomBlock, index) => {
+                    return (
+                        <ZoomBlock key={`zoomBlock_${index}`} onEditZoomBlock={handleEditZoomBlock} index={index} zoomBlock={zoomBlock} />
+                    );
+                })
+            }
+                <Button variant={'contained'} onClick={() => handleAddZoomBlock()}>Add New Zoom Block</Button>
             </Box>
         )}
     </Box>;

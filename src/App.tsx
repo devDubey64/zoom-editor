@@ -8,11 +8,10 @@ const App: React.FC = () => {
         <Container sx={{width:"100%"}}>
             <HeadBar/>
             <Box sx={{
-                position: "fixed",
-                top: '36px',
-                left: 0,
                 width: "100%",
-                height: "calc(100% - 36px)"
+                maxHeight: "calc(100vh - 36px)",
+                overFlowY: 'auto',
+                paddingTop: '24px',
             }}>
                 <VideoEditor />
             </Box>
