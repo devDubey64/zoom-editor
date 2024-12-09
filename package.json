@@ -2,15 +2,19 @@
   "name": "zoom-editor",
   "version": "1.0.0",
   "main": "dist/index.js",
+  "homepage": "https://devdubey64.github.io/zoom-editor",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "gh-pages": "^6.2.0",
     "typescript": "^5.7.2"
   },
   "private": true,

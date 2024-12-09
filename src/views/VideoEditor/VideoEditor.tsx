@@ -144,6 +144,10 @@ export const VideoEditor: FC = ()=> {
         });
     }
 
+    const handleVideoEnd = () => {
+        setIsPlaying(false); // Set isPlaying to false when video ends
+    };
+
     return <Box sx={{
         padding: 4,
         display: 'flex',
@@ -174,10 +178,9 @@ export const VideoEditor: FC = ()=> {
                     ref={videoRef}
                     src={videoSrc || ''}
                     style={{
-                        display: "none",
-                        width: "100%",
-                        height: "100%",
+                        display: "none"
                     }}
+                    onEnded={handleVideoEnd}
                 />
                 <canvas
                     ref={canvasRef}
